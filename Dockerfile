@@ -1,3 +1,4 @@
+# tag: v0.3.0-mos0.1
 FROM golang:1.16 AS builder
 WORKDIR /src
 
