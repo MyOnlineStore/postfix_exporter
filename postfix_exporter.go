@@ -286,7 +286,7 @@ func CollectShowqFromSocket(path string, ch chan<- prometheus.Metric) error {
 
 // Patterns for parsing log messages.
 var (
-	logLine                             = regexp.MustCompile(` ?(postfix|opendkim)(/(\w+))?\[\d+\]: (.*)`)
+	logLine                             = regexp.MustCompile(` ?(postfix|opendkim)(.*(\w+))?\[\d+\]: (.*)`)
 	lmtpPipeSMTPLine                    = regexp.MustCompile(`, relay=(\S+), .*, delays=([0-9\.]+)/([0-9\.]+)/([0-9\.]+)/([0-9\.]+), `)
 	qmgrInsertLine                      = regexp.MustCompile(`:.*, size=(\d+), nrcpt=(\d+) `)
 	smtpStatusDeferredLine              = regexp.MustCompile(`, status=deferred`)
@@ -313,12 +313,13 @@ func (e *PostfixExporter) CollectFromLogLine(line string) {
 	}
 	process := logMatches[1]
 	remainder := logMatches[4]
+	smtpd := regexp.MustCompile(`(.*)/(smtpd)`)
 	switch process {
 	case "postfix":
 		// Group patterns to check by Postfix service.
 		subprocess := logMatches[3]
-		switch subprocess {
-		case "cleanup":
+		switch {
+		case subprocess == "cleanup":
 			if strings.Contains(remainder, ": message-id=<") {
 				e.cleanupProcesses.Inc()
 			} else if strings.Contains(remainder, ": reject: ") {
@@ -326,7 +327,7 @@ func (e *PostfixExporter) CollectFromLogLine(line string) {
 			} else {
 				e.addToUnsupportedLine(line, subprocess)
 			}
-		case "lmtp":
+		case subprocess == "lmtp":
 			if lmtpMatches := lmtpPipeSMTPLine.FindStringSubmatch(remainder); lmtpMatches != nil {
 				addToHistogramVec(e.lmtpDelays, lmtpMatches[2], "LMTP pdelay", "before_queue_manager")
 				addToHistogramVec(e.lmtpDelays, lmtpMatches[3], "LMTP adelay", "queue_manager")
@@ -335,7 +336,7 @@ func (e *PostfixExporter) CollectFromLogLine(line string) {
 			} else {
 				e.addToUnsupportedLine(line, subprocess)
 			}
-		case "pipe":
+		case subprocess == "pipe":
 			if pipeMatches := lmtpPipeSMTPLine.FindStringSubmatch(remainder); pipeMatches != nil {
 				addToHistogramVec(e.pipeDelays, pipeMatches[2], "PIPE pdelay", pipeMatches[1], "before_queue_manager")
 				addToHistogramVec(e.pipeDelays, pipeMatches[3], "PIPE adelay", pipeMatches[1], "queue_manager")
@@ -344,7 +345,7 @@ func (e *PostfixExporter) CollectFromLogLine(line string) {
 			} else {
 				e.addToUnsupportedLine(line, subprocess)
 			}
-		case "qmgr":
+		case subprocess == "qmgr":
 			if qmgrInsertMatches := qmgrInsertLine.FindStringSubmatch(remainder); qmgrInsertMatches != nil {
 				addToHistogram(e.qmgrInsertsSize, qmgrInsertMatches[1], "QMGR size")
 				addToHistogram(e.qmgrInsertsNrcpt, qmgrInsertMatches[2], "QMGR nrcpt")
@@ -353,7 +354,7 @@ func (e *PostfixExporter) CollectFromLogLine(line string) {
 			} else {
 				e.addToUnsupportedLine(line, subprocess)
 			}
-		case "smtp":
+		case subprocess == "smtp":
 			if smtpMatches := lmtpPipeSMTPLine.FindStringSubmatch(remainder); smtpMatches != nil {
 				addToHistogramVec(e.smtpDelays, smtpMatches[2], "before_queue_manager", "")
 				addToHistogramVec(e.smtpDelays, smtpMatches[3], "queue_manager", "")
@@ -369,7 +370,7 @@ func (e *PostfixExporter) CollectFromLogLine(line string) {
 			} else {
 				e.addToUnsupportedLine(line, subprocess)
 			}
-		case "smtpd":
+		case smtpd.MatchString(subprocess):
 			if strings.HasPrefix(remainder, "connect from ") {
 				e.smtpdConnects.Inc()
 			} else if strings.HasPrefix(remainder, "disconnect from ") {
