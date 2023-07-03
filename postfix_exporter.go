@@ -317,7 +317,7 @@ func (e *PostfixExporter) CollectFromLogLine(line string) {
 	switch process {
 	case "postfix":
 		// Group patterns to check by Postfix service.
-		subprocess := logMatches[3]
+		subprocess := strings.TrimPrefix(logMatches[2], "/")
 		switch {
 		case subprocess == "cleanup":
 			if strings.Contains(remainder, ": message-id=<") {
@@ -370,7 +370,7 @@ func (e *PostfixExporter) CollectFromLogLine(line string) {
 			} else {
 				e.addToUnsupportedLine(line, subprocess)
 			}
-		case smtpd.MatchString(subprocess):
+		case smtpd.MatchString(subprocess), subprocess == "smtpd":
 			if strings.HasPrefix(remainder, "connect from ") {
 				e.smtpdConnects.Inc()
 			} else if strings.HasPrefix(remainder, "disconnect from ") {

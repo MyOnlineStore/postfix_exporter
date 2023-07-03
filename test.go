@@ -36,7 +36,7 @@ func main() {
 				case subprocess == "cleanup":
 					fmt.Println("Cleanup")
 				case regexed.MatchString(subprocess):
-					fmt.Println("SMTPD BITCHES")
+					fmt.Println("SMTPD")
 				default:
 					fmt.Println(subprocess)
 				}
